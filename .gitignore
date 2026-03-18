@@ -1,0 +1,21 @@
+# Node.js
+node_modules/
+
+# Build outputs
+dist/
+
+# Environment variables
+.env
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Editor Configurations
+.vscode/
+.idea/
+*.swp
