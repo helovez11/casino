@@ -481,3 +481,31 @@ input[type="number"]{ -moz-appearance:textfield; }
   background:rgba(110,231,255,.06);
   color:var(--text)
 }
+
+#plinkoCanvas {
+  image-rendering: crisp-edges;
+}
+
+.btnPrimary {
+  background: var(--accent);
+  color: #000;
+  font-weight: 800;
+}
+
+.plinkoPeg {
+  fill: #a78bfa;
+  stroke: #6ee7ff;
+  stroke-width: 3;
+}
+
+.plinkoBall {
+  fill: #ffd56e;
+  filter: drop-shadow(0 0 12px #ffd56e);
+}
+
+.plinkoBucket {
+  font-size: 13px;
+  font-weight: 800;
+  fill: #46f0a3;
+  text-anchor: middle;
+}

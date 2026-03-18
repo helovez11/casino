@@ -44,9 +44,10 @@
         <section class="mainCol">
           <div class="card">
             <div class="tabs" role="tablist" aria-label="Режимы игры">
-              <button id="tabClassic" class="tab isActive" type="button" role="tab" aria-selected="true">Слоты (классика)</button>
-              <button id="tabLines" class="tab" type="button" role="tab" aria-selected="false">Слоты (линии)</button>
+              <button id="tabClassic" class="tab isActive" type="button" role="tab" aria-selected="true">Classic</button>
+              <button id="tabLines" class="tab" type="button" role="tab" aria-selected="false">Slot</button>
               <button id="tabMines" class="tab" type="button" role="tab" aria-selected="false">Mines</button>
+              <button id="tabPlinko" class="tab">Plinko</button>
             </div>
           </div>
 
@@ -183,6 +184,50 @@
 
           <div id="minesGrid" class="minesGrid" aria-label="Поле 5 на 5"></div>
         </section>
+        <div id="gamePlinko" class="isHidden">
+          <div class="card">
+            <div class="cardHeader">
+              <div>
+                <div class="cardTitle">Plinko</div>
+                <div class="cardSub">Бросай шарик — лови до ×1000+ на высоком риске!</div>
+              </div>
+              <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+                <div class="bet">
+                  <label class="betLabel" for="betPlinko">Ставка</label>
+                  <input id="betPlinko" class="input inputNumber" type="number" min="1" max="1000000" step="1" value="25" />
+                </div>
+                <div class="bet">
+                  <label class="betLabel" for="riskPlinko">Риск</label>
+                  <select id="riskPlinko" class="select">
+                    <option value="easy">Easy</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="hard">Hard</option>
+                    <option value="extreme">Extreme</option>
+                  </select>
+                </div>
+                <div class="bet">
+                  <label class="betLabel" for="rowsPlinko">Ряды</label>
+                  <select id="rowsPlinko" class="select">
+                    <option value="8">8</option>
+                    <option value="10">10</option>
+                    <option value="12" selected>12</option>
+                    <option value="14">14</option>
+                    <option value="16">16</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+        
+            <canvas id="plinkoCanvas" width="720" height="580" style="background:#0b1020; border-radius:18px; border:1px solid var(--stroke); display:block; margin:20px auto; max-width:100%;"></canvas>
+        
+            <div style="margin-top:16px; display:flex; gap:16px; justify-content:center; flex-wrap:wrap;">
+              <button id="dropPlinko" class="btn btnPrimary" type="button" style="padding:14px 36px; font-size:16px;">БРОСИТЬ ШАРИК</button>
+              <button id="autoDropPlinko" class="btn btnSecondary" type="button">Авто ×10</button>
+            </div>
+        
+            <div id="plinkoResult" style="margin-top:16px; text-align:center; font-size:17px; min-height:32px; font-weight:600;"></div>
+          </div>
+        </div>
         </section>
 
         <aside class="side">

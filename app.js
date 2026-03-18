@@ -242,18 +242,25 @@ const el = {
   chatList: document.getElementById("chatList"),
   chatInput: document.getElementById("chatInput"),
   chatSend: document.getElementById("chatSend"),
+  tabPlinko: document.getElementById("tabPlinko"),
+  gamePlinko: document.getElementById("gamePlinko"),
+  canvasPlinko: document.getElementById("plinkoCanvas"),
+  betPlinko: document.getElementById("betPlinko"),
+  riskPlinko: document.getElementById("riskPlinko"),
+  rowsPlinko: document.getElementById("rowsPlinko"),
+  dropPlinko: document.getElementById("dropPlinko"),
+  autoDropPlinko: document.getElementById("autoDropPlinko"),
+  plinkoResult: document.getElementById("plinkoResult"),
 };
 
 let app = loadState();
 
 function currentUser() {
-  const u = app.users[app.currentUser] || app.users["Гость"];
   if (!app.users[app.currentUser]) {
     app.currentUser = "Гость";
-    // если упали в гостя из-за несуществующего профиля — гостя тоже сбрасываем
     resetGuestInMemory();
   }
-  return u;
+  return app.users[app.currentUser] || app.users["Гость"];
 }
 
 function resetGuestInMemory() {
@@ -830,12 +837,24 @@ function setActiveTab(tabId) {
     { tab: el.tabClassic, panel: el.gameClassic, id: "classic" },
     { tab: el.tabLines, panel: el.gameLines, id: "lines" },
     { tab: el.tabMines, panel: el.gameMines, id: "mines" },
+    { tab: el.tabPlinko,  panel: el.gamePlinko,  id: "plinko" }
   ];
   for (const x of map) {
     const on = x.id === tabId;
     x.tab.classList.toggle("isActive", on);
     x.tab.setAttribute("aria-selected", on ? "true" : "false");
     x.panel.classList.toggle("isHidden", !on);
+  }
+
+  if (tabId === "plinko") {
+    // гарантируем инициализацию и отрисовку при открытии вкладки
+    initPlinko();
+    try {
+      rebuildPlinkoBoard();
+    } catch {}
+    requestAnimationFrame(() => {
+      try { drawPlinko(); } catch {}
+    });
   }
 }
 
@@ -1349,22 +1368,22 @@ function sendChat() {
 }
 
 // events
-el.spin.addEventListener("click", () => spinOnce({ bet: readBet(el.bet) }));
-el.auto.addEventListener("click", autoSpin10);
-el.seed.addEventListener("click", newSeed);
-el.claimDaily.addEventListener("click", claimDaily);
-el.submitScore.addEventListener("click", submitScore);
-el.reset.addEventListener("click", resetAll);
-el.openRules.addEventListener("click", openRules);
-el.openStore.addEventListener("click", openStore);
-el.openProfile.addEventListener("click", openProfile);
+el.spin?.addEventListener("click", () => spinOnce({ bet: readBet(el.bet) }));
+el.auto?.addEventListener("click", autoSpin10);
+el.seed?.addEventListener("click", newSeed);
+el.claimDaily?.addEventListener("click", claimDaily);
+el.submitScore?.addEventListener("click", submitScore);
+el.reset?.addEventListener("click", resetAll);
+el.openRules?.addEventListener("click", openRules);
+el.openStore?.addEventListener("click", openStore);
+el.openProfile?.addEventListener("click", openProfile);
 
-el.tabClassic.addEventListener("click", () => setActiveTab("classic"));
-el.tabLines.addEventListener("click", () => setActiveTab("lines"));
-el.tabMines.addEventListener("click", () => setActiveTab("mines"));
-
-el.spinLines.addEventListener("click", () => spinLinesOnce({ bet: readBet(el.betLines) }));
-el.autoLines.addEventListener("click", autoLines10);
+el.tabClassic?.addEventListener("click", () => setActiveTab("classic"));
+el.tabLines?.addEventListener("click", () => setActiveTab("lines"));
+el.tabMines?.addEventListener("click", () => setActiveTab("mines"));
+el.tabPlinko?.addEventListener("click", () => setActiveTab("plinko"));
+el.spinLines?.addEventListener("click", () => spinLinesOnce({ bet: readBet(el.betLines) }));
+el.autoLines?.addEventListener("click", autoLines10);
 el.linesCountLines?.addEventListener("change", () => {
   clearLinesHighlights();
   // не показываем фоновые линии — только выигравшие после спина
@@ -1372,8 +1391,8 @@ el.linesCountLines?.addEventListener("change", () => {
   hideLinesWin();
 });
 
-el.startMines.addEventListener("click", startMines);
-el.cashoutMines.addEventListener("click", cashoutMines);
+el.startMines?.addEventListener("click", startMines);
+el.cashoutMines?.addEventListener("click", cashoutMines);
 
 el.chatSend?.addEventListener("click", sendChat);
 el.chatInput?.addEventListener("keydown", (e) => {
@@ -1402,6 +1421,7 @@ function initApp() {
     for (let c = 0; c < 5; c++) setLinesStatic(c, [g[0][c], g[1][c], g[2][c]]);
   }
   minesResetUI();
+  initPlinko();
   setActiveTab("classic");
   renderAll();
   setStatus("Готово. Если хочешь — забери ежедневный бонус и крути.", "");
@@ -1429,3 +1449,371 @@ window.addEventListener("unhandledrejection", (e) => {
   } catch {}
 });
 
+// ==================== PLINKO ====================
+let plinko = {
+  canvas: null,
+  ctx: null,
+  pegs: [],
+  buckets: [],
+  ball: null,
+  isAnimating: false,
+  autoDropsLeft: 0,
+  rows: 12,
+  risk: "medium",
+  multipliers: [],
+  chances: [],
+  lastBucketIdx: -1,
+  inited: false,
+  pegRadius: 7,
+  ballRadius: 7,
+  gravity: 0.28,
+  bounce: 0.62
+};
+
+function computePlinkoChances(multipliers, risk) {
+  // Чем выше множитель — тем меньше шанс.
+  // Risk регулирует "крутизну" падения вероятности.
+  const kByRisk = { easy: 1.15, medium: 1.35, hard: 1.6, extreme: 1.9 };
+  const k = kByRisk[risk] ?? 1.35;
+
+  const raw = multipliers.map((m) => 1 / Math.pow(Math.max(0.2, m), k));
+  const sum = raw.reduce((a, b) => a + b, 0) || 1;
+  let probs = raw.map((w) => w / sum);
+
+  // Минимальный шанс 0.01% для каждой корзины, чтобы не выглядело "0%".
+  const floor = 0.0001; // 0.01%
+  probs = probs.map((p) => Math.max(floor, p));
+  const sum2 = probs.reduce((a, b) => a + b, 0) || 1;
+  probs = probs.map((p) => p / sum2);
+  return probs;
+}
+
+function sampleIndexByChances(chances) {
+  const r = rng();
+  let acc = 0;
+  for (let i = 0; i < chances.length; i++) {
+    acc += chances[i];
+    if (r <= acc) return i;
+  }
+  return chances.length - 1;
+}
+
+function initPlinko() {
+  if (plinko.inited) return;
+  if (!el.canvasPlinko || !el.dropPlinko || !el.autoDropPlinko) return;
+
+  plinko.canvas = el.canvasPlinko;
+  plinko.ctx = plinko.canvas.getContext("2d");
+  if (!plinko.ctx) return;
+  plinko.canvas.width = 720;
+  plinko.canvas.height = 580;
+
+  // Слушатели изменений настроек
+  el.riskPlinko?.addEventListener("change", rebuildPlinkoBoard);
+  el.rowsPlinko?.addEventListener("change", rebuildPlinkoBoard);
+  el.dropPlinko.addEventListener("click", () => dropBall(false));
+  el.autoDropPlinko.addEventListener("click", () => {
+    if (plinko.autoDropsLeft > 0) return;
+    plinko.autoDropsLeft = 10;
+    autoDrop();
+  });
+
+  rebuildPlinkoBoard(); // Первая сборка доски
+  plinko.inited = true;
+}
+
+function rebuildPlinkoBoard() {
+  plinko.risk = el.riskPlinko?.value || "medium";
+  plinko.rows = clampInt(Number(el.rowsPlinko?.value ?? 12), 8, 16);
+
+  // Генерация пинов
+  plinko.pegs = [];
+  // Пирамида: 1..rows пинов, по центру.
+  const marginX = 64;
+  const bottomCols = plinko.rows; // внизу rows пинов
+  const spacingX = (plinko.canvas.width - marginX * 2) / Math.max(1, bottomCols - 1); // шире и контролируемо
+  const spacingY = Math.min(44, (plinko.canvas.height - 160) / (plinko.rows + 1));
+  const centerX = plinko.canvas.width / 2;
+  const topY = 118; // ниже
+
+  for (let row = 0; row < plinko.rows; row++) {
+    const colsThisRow = row + 1;
+    const rowWidth = (colsThisRow - 1) * spacingX;
+    const startX = centerX - rowWidth / 2;
+    const y = topY + row * spacingY;
+    for (let col = 0; col < colsThisRow; col++) {
+      plinko.pegs.push({
+        x: startX + col * spacingX,
+        y
+      });
+    }
+  }
+
+  // Генерация множителей
+  plinko.multipliers = generateMultipliers(plinko.rows, plinko.risk);
+  plinko.chances = computePlinkoChances(plinko.multipliers, plinko.risk);
+  plinko.buckets = [];
+  const bucketWidth = plinko.canvas.width / plinko.multipliers.length;
+  for (let i = 0; i < plinko.multipliers.length; i++) {
+    plinko.buckets.push({
+      x: i * bucketWidth + bucketWidth / 2,
+      mult: plinko.multipliers[i],
+      chance: plinko.chances[i],
+    });
+  }
+
+  drawPlinko();
+}
+
+function generateMultipliers(rows, risk) {
+  const count = rows + 1; // корзин = рядов + 1
+  const center = Math.floor(count / 2);
+
+  // Дискретные множители. Реально зависят от сложности и числа рядов:
+  // - чем выше риск, тем выше максимум и тем агрессивнее рост к краям
+  // - чем больше рядов, тем больше "ступенек" (используем больше значений)
+  const ladders = {
+    easy:    { ladder: [0.2, 0.5, 1, 2, 5, 10, 25],           curve: 1.25 },
+    medium:  { ladder: [0.2, 0.5, 1, 2, 5, 10, 25, 125],       curve: 1.45 },
+    hard:    { ladder: [0.2, 0.5, 1, 2, 5, 10, 25, 125, 1000], curve: 1.70 },
+    extreme: { ladder: [0.2, 0.5, 1, 2, 5, 10, 25, 125, 1000], curve: 2.05 },
+  };
+  const cfg = ladders[risk] || ladders.medium;
+  const ladder = cfg.ladder;
+  const curve = cfg.curve;
+
+  const mults = new Array(count).fill(ladder[0]);
+
+  // Насколько глубоко используем лестницу (больше рядов → ближе к максимуму).
+  // Например, на 8 рядах мы не обязаны доходить до 1000× даже на hard.
+  const reachByRows = clampInt(rows, 8, 16);
+  const reach = (reachByRows - 8) / 8; // 0..1
+  const maxIndex = Math.max(1, Math.min(ladder.length - 1, Math.round(1 + reach * (ladder.length - 2))));
+
+  for (let i = 0; i < count; i++) {
+    const dist = Math.abs(i - center);
+    const t = center === 0 ? 0 : dist / center; // 0 в центре, 1 на краю
+    const eased = Math.pow(t, curve);
+    const idx = Math.min(maxIndex, Math.round(eased * maxIndex));
+    mults[i] = ladder[idx];
+  }
+  return mults;
+}
+
+function drawPlinko() {
+  const c = plinko.ctx;
+  c.clearRect(0, 0, plinko.canvas.width, plinko.canvas.height);
+
+  // Пины
+  for (let p of plinko.pegs) {
+    c.beginPath();
+    c.arc(p.x, p.y, plinko.pegRadius, 0, Math.PI * 2);
+    c.fillStyle = "#a78bfa";
+    c.fill();
+    c.strokeStyle = "#6ee7ff";
+    c.lineWidth = 3;
+    c.stroke();
+  }
+
+  // Корзины
+  const bucketWidth = plinko.canvas.width / plinko.buckets.length;
+  const fontSize = clampInt(Math.floor(Math.min(14, Math.max(10, bucketWidth * 0.22))), 10, 14);
+  c.font = `800 ${fontSize}px ${getComputedStyle(document.body).fontFamily}`;
+  c.textAlign = "center";
+  c.textBaseline = "alphabetic";
+  for (let b of plinko.buckets) {
+    const color = b.mult >= 50 ? "#ff4d4d" : (b.mult >= 5 ? "#ffd56e" : "#46f0a3");
+    c.fillStyle = color;
+    const label = b.mult < 1 ? `${b.mult.toFixed(1)}×` : `${Math.round(b.mult)}×`;
+    c.fillText(label, b.x, plinko.canvas.height - 24);
+
+    // проценты (если хватает места)
+    if (bucketWidth >= 34) {
+      c.save();
+      c.globalAlpha = 0.85;
+      c.fillStyle = "rgba(170,177,216,.85)";
+      const pct = `${(b.chance * 100).toFixed(b.chance * 100 < 1 ? 2 : 1)}%`;
+      c.font = `700 ${Math.max(9, fontSize - 3)}px ${getComputedStyle(document.body).fontFamily}`;
+      c.fillText(pct, b.x, plinko.canvas.height - 8);
+      c.restore();
+      // вернуть основной шрифт
+      c.font = `800 ${fontSize}px ${getComputedStyle(document.body).fontFamily}`;
+      c.fillStyle = color;
+    }
+  }
+
+  // Подсветка последней корзины
+  if (plinko.lastBucketIdx >= 0) {
+    c.save();
+    c.globalAlpha = 0.22;
+    c.fillStyle = "#6ee7ff";
+    c.fillRect(plinko.lastBucketIdx * bucketWidth, plinko.canvas.height - 78, bucketWidth, 58);
+    c.restore();
+  }
+
+  // Шарик
+  if (plinko.ball) {
+    c.shadowBlur = 20;
+    c.shadowColor = "#ffd56e";
+    c.beginPath();
+    c.arc(plinko.ball.x, plinko.ball.y, plinko.ball.radius, 0, Math.PI * 2);
+    c.fillStyle = "#ffd56e";
+    c.fill();
+    c.shadowBlur = 0;
+  }
+}
+
+function dropBall(isAuto = false) {
+  if (plinko.isAnimating) return;
+
+  const bet = readBet(el.betPlinko);
+  const u = currentUser();
+  if (u.balance < bet) {
+    el.plinkoResult.innerHTML = `<span style="color:var(--bad)">Недостаточно монет!</span>`;
+    return;
+  }
+
+  u.balance -= bet;
+  saveState(app);
+  renderBalance();
+
+  plinko.isAnimating = true;
+  el.plinkoResult.textContent = "";
+
+  // Выбираем целевую корзину по шансам (большие иксы — реже)
+  const targetIdx = sampleIndexByChances(plinko.chances || computePlinkoChances(plinko.multipliers, plinko.risk));
+  const bucketWidth = plinko.canvas.width / plinko.multipliers.length;
+  // цель — не строго центр, а случайно внутри корзины (чтобы визуально было правдоподобнее)
+  const inset = Math.min(10, bucketWidth * 0.18);
+  const targetX = targetIdx * bucketWidth + inset + rng() * Math.max(1, bucketWidth - inset * 2);
+
+  // Стартовая позиция — строго по центру над пиком пирамиды
+  const startX = plinko.canvas.width / 2;
+
+  plinko.ball = {
+    x: startX,
+    y: 40,
+    vx: 0,
+    vy: 1.4 + rng() * 0.6,
+    radius: plinko.ballRadius,
+    bet: bet,
+    lastX: startX,
+    lastY: 40,
+    stuckFrames: 0,
+    targetX
+  };
+
+  // микрошум, чтобы не было детерминированного перекоса вправо/влево
+  plinko.ball.vx = (rng() - 0.5) * 0.18;
+
+  animateBall();
+}
+
+function animateBall() {
+  if (!plinko.ball) return;
+
+  const b = plinko.ball;
+  // несколько подшагов за кадр, чтобы меньше "застревало"
+  const steps = 2;
+  for (let s = 0; s < steps; s++) {
+    // анти-залип сверху
+    if (b.y < 35 && b.vy < 0.2) b.vy = 1.2;
+
+    b.vy += plinko.gravity / steps;
+
+    // мягко "подруливаем" к выбранной корзине, чтобы визуально соответствовало шансам
+    if (Number.isFinite(b.targetX)) {
+      const dxT = b.targetX - b.x;
+      b.vx += (dxT * 0.00055); // очень мягко
+      b.vx = Math.max(-3.4, Math.min(3.4, b.vx));
+    }
+    b.x += b.vx / steps;
+    b.y += b.vy / steps;
+
+    // Столкновения
+    for (let p of plinko.pegs) {
+      const dx = b.x - p.x;
+      const dy = b.y - p.y;
+      const dist = Math.hypot(dx, dy);
+      const minDist = b.radius + plinko.pegRadius; // радиус шара + радиус пина
+      if (dist > 0 && dist < minDist) {
+        const nx = dx / dist;
+        const ny = dy / dist;
+
+        // вытолкнуть шар из пина
+        const overlap = (minDist - dist) + 0.8;
+        b.x += nx * overlap;
+        b.y += ny * overlap;
+
+        // толчок: вниз + боковой.
+        // Если удар почти в центр пина (nx≈0), выбираем сторону случайно — иначе появляется перекос.
+        let side;
+        if (Math.abs(nx) < 0.06) side = rng() < 0.5 ? -1 : 1;
+        else side = nx > 0 ? 1 : -1;
+
+        b.vx = (b.vx * 0.22) + side * (0.55 + rng() * 0.85);
+        // ограничим разгон в сторону, чтобы не улетал в край
+        b.vx = Math.max(-3.2, Math.min(3.2, b.vx));
+
+        b.vy = Math.max(0.60, Math.abs(b.vy) * 0.22 + 0.60);
+      }
+    }
+  }
+
+  // анти-застревание между пинами: если почти не двигается несколько кадров — пинок вниз
+  const moved = Math.hypot(b.x - (b.lastX ?? b.x), b.y - (b.lastY ?? b.y));
+  if (moved < 0.18) b.stuckFrames = (b.stuckFrames ?? 0) + 1;
+  else b.stuckFrames = 0;
+  b.lastX = b.x;
+  b.lastY = b.y;
+  if (b.stuckFrames > 10) {
+    b.stuckFrames = 0;
+    b.y += 2.2;
+    b.vy = Math.max(b.vy, 1.4);
+    b.vx += (rng() - 0.5) * 2.2;
+  }
+
+  // Стены
+  if (b.x < 25) { b.x = 25; b.vx = Math.abs(b.vx) * 0.75; }
+  if (b.x > plinko.canvas.width - 25) { b.x = plinko.canvas.width - 25; b.vx = -Math.abs(b.vx) * 0.75; }
+
+  // Достигли дна
+  if (b.y > plinko.canvas.height - 66) {
+    let idx = Math.floor(b.x / (plinko.canvas.width / plinko.multipliers.length));
+    idx = clampInt(idx, 0, plinko.multipliers.length - 1);
+    plinko.lastBucketIdx = idx;
+
+    const mult = plinko.multipliers[idx];
+    const win = Math.floor(b.bet * mult);
+
+    if (win > 0) {
+      currentUser().balance += win;
+      saveState(app);
+      renderBalance();
+      el.plinkoResult.innerHTML = `+${formatInt(win)} (${mult.toFixed(1)}×)`;
+      if (mult >= 20) el.plinkoResult.style.color = "var(--good)";
+      else if (mult < 0.5) el.plinkoResult.style.color = "var(--bad)";
+      else el.plinkoResult.style.color = "";
+    } else {
+      el.plinkoResult.innerHTML = `0 (${mult.toFixed(1)}×)`;
+      el.plinkoResult.style.color = "var(--muted)";
+    }
+
+    plinko.ball = null;
+    plinko.isAnimating = false;
+    drawPlinko();
+    return;
+  }
+
+  drawPlinko();
+  requestAnimationFrame(animateBall);
+}
+
+function autoDrop() {
+  if (plinko.autoDropsLeft <= 0) return;
+  plinko.autoDropsLeft--;
+  dropBall(true);
+  setTimeout(() => {
+    if (plinko.autoDropsLeft > 0 && !plinko.isAnimating) autoDrop();
+  }, 1400);
+}
