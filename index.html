@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Social casino: слоты на виртуальные монеты. Без вывода денег." />
+    <title>Social Casino (MVP)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Rubik:wght@400;600;700;800&display=swap&subset=cyrillic"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="logo">SC</div>
+          <div class="brandText">
+            <div class="brandName">Social Casino</div>
+            <div class="brandTag">только виртуальные монеты • без вывода денег</div>
+          </div>
+        </div>
+
+        <div class="topbarRight">
+          <div class="pill" title="Текущий профиль">
+            <span class="pillLabel">Профиль</span>
+            <span id="userName" class="pillValue">Гость</span>
+          </div>
+          <div class="pill" title="Твой баланс">
+            <span class="pillLabel">Баланс</span>
+            <span id="balance" class="pillValue">0</span>
+            <span class="pillSuffix">монет</span>
+          </div>
+          <button id="openProfile" class="btn btnSecondary" type="button">Профиль</button>
+          <button id="openStore" class="btn btnSecondary" type="button">Магазин</button>
+          <button id="openRules" class="btn btnGhost" type="button">Правила</button>
+        </div>
+      </header>
+
+      <main class="grid">
+        <section class="mainCol">
+          <div class="card">
+            <div class="tabs" role="tablist" aria-label="Режимы игры">
+              <button id="tabClassic" class="tab isActive" type="button" role="tab" aria-selected="true">Слоты (классика)</button>
+              <button id="tabLines" class="tab" type="button" role="tab" aria-selected="false">Слоты (линии)</button>
+              <button id="tabMines" class="tab" type="button" role="tab" aria-selected="false">Mines</button>
+            </div>
+          </div>
+
+          <section id="gameClassic" class="card slotCard" role="tabpanel" aria-label="Слоты (классика)">
+          <div class="cardHeader">
+            <div>
+              <div class="cardTitle">Слоты</div>
+              <div class="cardSub">Ставка списывается в монетах. Выигрыш — тоже монеты.</div>
+            </div>
+            <div class="bet">
+              <label class="betLabel" for="bet">Ставка</label>
+              <input id="bet" class="input inputNumber" type="number" inputmode="numeric" min="1" max="1000000" step="1" value="25" />
+            </div>
+            <div class="chips" aria-label="Быстрые ставки">
+              <button class="chip" type="button" data-bet-target="bet" data-bet="10">10</button>
+              <button class="chip" type="button" data-bet-target="bet" data-bet="25">25</button>
+              <button class="chip" type="button" data-bet-target="bet" data-bet="50">50</button>
+              <button class="chip" type="button" data-bet-target="bet" data-bet="100">100</button>
+            </div>
+          </div>
+
+          <div class="reels" aria-label="Игровые барабаны">
+            <div class="reel" id="r0"><div class="reelStrip" aria-hidden="true"></div></div>
+            <div class="reel" id="r1"><div class="reelStrip" aria-hidden="true"></div></div>
+            <div class="reel" id="r2"><div class="reelStrip" aria-hidden="true"></div></div>
+          </div>
+
+          <div class="actions">
+            <button id="spin" class="btn btnPrimary" type="button">Крутить</button>
+            <button id="auto" class="btn btnSecondary" type="button">Авто ×10</button>
+            <button id="seed" class="btn btnGhost" type="button" title="Пересоздать 'seed' рандома для прозрачности">
+              Новый seed
+            </button>
+          </div>
+
+          <div class="resultRow">
+            <div id="status" class="status">Готово. Забери ежедневный бонус, если ещё не забирал.</div>
+            <div class="payoutHint">
+              Выплаты: <span class="mono">🍒🍒🍒 = ×8</span>, <span class="mono">🍋🍋🍋 = ×6</span>,
+              <span class="mono">🍇🍇🍇 = ×10</span>, <span class="mono">⭐️⭐️⭐️ = ×20</span>,
+              <span class="mono">7️⃣7️⃣7️⃣ = ×50</span>
+            </div>
+          </div>
+        </section>
+
+        <section id="gameLines" class="card slotCard isHidden" role="tabpanel" aria-label="Слоты (линии)">
+          <div class="cardHeader">
+            <div>
+              <div class="cardTitle">Слоты с линиями (MVP)</div>
+              <div class="cardSub">5 барабанов × 3 ряда. До 20 линий, ставка за линию.</div>
+            </div>
+            <div class="bet">
+              <label class="betLabel" for="betLines">Ставка</label>
+              <input id="betLines" class="input inputNumber" type="number" inputmode="numeric" min="1" max="1000000" step="1" value="25" />
+            </div>
+            <div class="chips" aria-label="Быстрые ставки (за линию)">
+              <button class="chip" type="button" data-bet-target="betLines" data-bet="10">10</button>
+              <button class="chip" type="button" data-bet-target="betLines" data-bet="25">25</button>
+              <button class="chip" type="button" data-bet-target="betLines" data-bet="50">50</button>
+              <button class="chip" type="button" data-bet-target="betLines" data-bet="100">100</button>
+            </div>
+            <div class="bet">
+              <label class="betLabel" for="linesCountLines">Линий</label>
+              <select id="linesCountLines" class="select">
+                <option value="1">1</option>
+                <option value="3">3</option>
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="15">15</option>
+                <option value="20" selected>20</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="linesWrap" aria-label="Поле слотов 5 на 3">
+            <div id="linesReels" class="linesReels" aria-label="Барабаны (5)"></div>
+            <div class="linesOverlay" aria-hidden="true">
+              <svg id="linesSvg" class="linesSvg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+            </div>
+            <div id="linesWin" class="winFloat isHidden" aria-live="polite">
+              <div class="winMult"><span id="linesWinMult">0.00×</span></div>
+              <div class="winAmount"><span id="linesWinAmount">0</span> <span class="winUnit">монет</span></div>
+              <div class="winMeta" id="linesWinMeta">—</div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="spinLines" class="btn btnPrimary" type="button">Крутить</button>
+            <button id="autoLines" class="btn btnSecondary" type="button">Авто ×10</button>
+          </div>
+
+          <div class="resultRow">
+            <div id="statusLines" class="status">Выбери количество линий и крути. Выплаты за 3–5 одинаковых слева направо по каждой активной линии.</div>
+          </div>
+        </section>
+
+        <section id="gameMines" class="card slotCard isHidden" role="tabpanel" aria-label="Mines">
+          <div class="cardHeader">
+            <div>
+              <div class="cardTitle">Mines (MVP)</div>
+              <div class="cardSub">Открой безопасные клетки и забери выигрыш. Попадёшь на мину — ставка сгорает.</div>
+            </div>
+            <div class="minesControls">
+              <div class="bet">
+                <label class="betLabel" for="betMines">Ставка</label>
+                <input id="betMines" class="input inputNumber" type="number" inputmode="numeric" min="1" max="1000000" step="1" value="25" />
+              </div>
+              <div class="chips" aria-label="Быстрые ставки (mines)">
+                <button class="chip" type="button" data-bet-target="betMines" data-bet="10">10</button>
+                <button class="chip" type="button" data-bet-target="betMines" data-bet="25">25</button>
+                <button class="chip" type="button" data-bet-target="betMines" data-bet="50">50</button>
+                <button class="chip" type="button" data-bet-target="betMines" data-bet="100">100</button>
+              </div>
+              <div class="bet">
+                <label class="betLabel" for="minesCount">Мин</label>
+                <select id="minesCount" class="select">
+                  <option value="3">3</option>
+                  <option value="5" selected>5</option>
+                  <option value="8">8</option>
+                  <option value="10">10</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="startMines" class="btn btnPrimary" type="button">Старт</button>
+            <button id="cashoutMines" class="btn btnSecondary" type="button" disabled>Забрать</button>
+          </div>
+
+          <div class="minesMeta">
+            <div id="minesStatus" class="status">Нажми “Старт”, затем открывай клетки.</div>
+          </div>
+
+          <div id="minesGrid" class="minesGrid" aria-label="Поле 5 на 5"></div>
+        </section>
+        </section>
+
+        <aside class="side">
+          <section class="card">
+            <div class="cardHeader">
+              <div>
+                <div class="cardTitle">Ежедневный бонус</div>
+                <div class="cardSub">Раз в 24 часа. Никаких денег — только монеты.</div>
+              </div>
+            </div>
+            <div class="daily">
+              <div class="dailyMeta">
+                <div class="dailyBig"><span id="dailyAmount">+250</span> монет</div>
+                <div class="dailySmall" id="dailyState">Доступно</div>
+              </div>
+              <button id="claimDaily" class="btn btnPrimary" type="button">Забрать бонус</button>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="cardHeader">
+              <div>
+                <div class="cardTitle">Топ (локально)</div>
+                <div class="cardSub">Пока хранится в браузере. Потом подключим аккаунты.</div>
+              </div>
+            </div>
+            <ol id="leaderboard" class="leaderboard"></ol>
+            <div class="row">
+              <button id="submitScore" class="btn btnSecondary" type="button">Записать результат</button>
+              <button id="reset" class="btn btnGhost" type="button">Сброс</button>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="cardHeader">
+              <div>
+                <div class="cardTitle">Чат игроков (локально)</div>
+                <div class="cardSub">Пока сообщения видны только в твоём браузере. Потом подключим сервер.</div>
+              </div>
+            </div>
+            <div id="chatList" class="chatList" aria-label="Сообщения чата"></div>
+            <div class="chatRow">
+              <input id="chatInput" class="input" placeholder="Написать сообщение…" maxlength="200" />
+              <button id="chatSend" class="btn btnPrimary" type="button">Отправить</button>
+            </div>
+          </section>
+        </aside>
+      </main>
+
+      <footer class="footer">
+        <div class="footerNote">
+          **Важно**: это social casino. Выигрыши/проигрыши не конвертируются в деньги и не выводятся. Не обещай
+          “заработок” пользователям — делай акцент на развлечении.
+        </div>
+      </footer>
+    </div>
+
+    <dialog id="modal" class="modal">
+      <form method="dialog" class="modalBox">
+        <div class="modalHeader">
+          <div id="modalTitle" class="modalTitle">Заголовок</div>
+          <button class="iconBtn" aria-label="Закрыть" value="close">✕</button>
+        </div>
+        <div id="modalBody" class="modalBody"></div>
+        <div class="modalFooter">
+          <button class="btn btnSecondary" value="close">Закрыть</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
