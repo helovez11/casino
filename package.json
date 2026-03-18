@@ -1,0 +1,1 @@
+{\n  \"name\": \"casino\",\n  \"version\": \"1.0.0\",\n  \"scripts\": {\n    \"test\": \"jest\",\n    \"build\": \"webpack --mode production\"\n  },\n  \"devDependencies\": {\n    \"eslint\": \"^7.32.0\",\n    \"webpack\": \"^5.65.0\",\n    \"webpack-cli\": \"^4.9.1\",\n    \"jest\": \"^27.4.7\",\n    \"vite\": \"^2.8.6\"\n  }\n}
